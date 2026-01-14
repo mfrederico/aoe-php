@@ -69,13 +69,13 @@ HELP
             ? $this->getStorage()->findByGroup($groupFilter)
             : $this->getStorage()->loadAll();
 
-        // Always refresh status live from tmux
+        // Always refresh status live from tmux and cleanup stopped sessions
         if (!empty($sessions)) {
             $tmux = new TmuxService($this->getTenantId());
             $detector = new StatusDetector();
-            $updated = false;
+            $toRemove = [];
 
-            foreach ($sessions as $session) {
+            foreach ($sessions as $key => $session) {
                 $tmuxName = $session->getTmuxName();
                 if ($tmux->sessionExistsByName($tmuxName)) {
                     // Session exists - detect status from pane content
@@ -83,21 +83,26 @@ HELP
                     $newStatus = $detector->detect($content);
                     if ($newStatus !== $session->status) {
                         $session->status = $newStatus;
-                        $updated = true;
+                        $this->getStorage()->save($session);
                     }
-                } elseif ($session->status->isActive()) {
-                    // Tmux doesn't exist but status says active - mark stopped
-                    $session->status = Status::Stopped;
-                    $updated = true;
+                } else {
+                    // Tmux doesn't exist - remove session from storage
+                    // This prevents stopped sessions from counting against max_concurrent_jobs
+                    $toRemove[] = $key;
+                    $this->getStorage()->delete($session->id);
+                    $output->writeln(sprintf(
+                        '<comment>Removed stopped session: %s (%s)</comment>',
+                        $session->title,
+                        $session->getShortId()
+                    ));
                 }
             }
 
-            if ($updated) {
-                // Re-save all sessions
-                foreach ($sessions as $session) {
-                    $this->getStorage()->save($session);
-                }
+            // Remove deleted sessions from the list
+            foreach ($toRemove as $key) {
+                unset($sessions[$key]);
             }
+            $sessions = array_values($sessions);
         }
 
         if ($jsonOutput) {
