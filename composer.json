@@ -1,0 +1,33 @@
+{
+    "name": "myctobot/aoe-php",
+    "description": "AI Agent Session Manager - PHP port of agent-of-empires with multi-tenancy support",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "openswoole/core": "^22.0",
+        "symfony/console": "^6.0",
+        "ramsey/uuid": "^4.0",
+        "nesbot/carbon": "^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Aoe\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Aoe\\Tests\\": "tests/"
+        }
+    },
+    "bin": ["bin/aoe"],
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
