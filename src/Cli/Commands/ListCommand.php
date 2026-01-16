@@ -43,7 +43,7 @@ class ListCommand extends BaseCommand
             ->setHelp(<<<'HELP'
 List all sessions for the specified tenant.
 
-Status is always detected live from tmux.
+Status is always detected live from tmux (source of truth).
 
 Examples:
   aoe --tenant=acme sessions
@@ -64,45 +64,86 @@ HELP
         $groupFilter = $input->getOption('group');
         $jsonOutput = $input->getOption('json');
 
-        // Load sessions
-        $sessions = $groupFilter
-            ? $this->getStorage()->findByGroup($groupFilter)
-            : $this->getStorage()->loadAll();
+        // TMUX IS THE SOURCE OF TRUTH
+        // Query tmux first, then match against storage for metadata
+        $tmux = new TmuxService($this->getTenantId());
+        $detector = new StatusDetector();
+        $tmuxSessions = $tmux->listSessions();
 
-        // Always refresh status live from tmux and cleanup stopped sessions
-        if (!empty($sessions)) {
-            $tmux = new TmuxService($this->getTenantId());
-            $detector = new StatusDetector();
-            $toRemove = [];
+        // Load stored sessions for metadata lookup
+        $storedSessions = $this->getStorage()->loadAll();
+        $storedByTmuxName = [];
+        foreach ($storedSessions as $stored) {
+            $storedByTmuxName[$stored->getTmuxName()] = $stored;
+        }
 
-            foreach ($sessions as $key => $session) {
-                $tmuxName = $session->getTmuxName();
-                if ($tmux->sessionExistsByName($tmuxName)) {
-                    // Session exists - detect status from pane content
-                    $content = $tmux->capturePaneByName($tmuxName, 20);
-                    $newStatus = $detector->detect($content);
-                    if ($newStatus !== $session->status) {
-                        $session->status = $newStatus;
-                        $this->getStorage()->save($session);
-                    }
-                } else {
-                    // Tmux doesn't exist - remove session from storage
-                    // This prevents stopped sessions from counting against max_concurrent_jobs
-                    $toRemove[] = $key;
-                    $this->getStorage()->delete($session->id);
-                    $output->writeln(sprintf(
-                        '<comment>Removed stopped session: %s (%s)</comment>',
-                        $session->title,
-                        $session->getShortId()
-                    ));
-                }
+        // Build session list from tmux (source of truth)
+        $sessions = [];
+        foreach ($tmuxSessions as $sessionId => $tmuxInfo) {
+            $tmuxName = $tmuxInfo['name'];
+
+            if (isset($storedByTmuxName[$tmuxName])) {
+                // Found in storage - use stored metadata
+                $session = $storedByTmuxName[$tmuxName];
+                unset($storedByTmuxName[$tmuxName]); // Mark as matched
+            } else {
+                // Not in storage - create session from tmux info
+                // Parse session name: aoe-{tenant}-{reference}-{shortId}
+                $parts = explode('-', $tmuxName);
+                $shortId = end($parts);
+                // Reference is everything between tenant and shortId
+                $reference = implode('-', array_slice($parts, 2, -1));
+
+                // Create session with the actual short ID from tmux name
+                // Pad the ID to 16 chars to match expected format
+                $fullId = str_pad($shortId, 16, '0');
+
+                $session = Instance::fromArray([
+                    'id' => $fullId,
+                    'tenant_id' => $this->getTenantId(),
+                    'title' => $reference ?: $sessionId,
+                    'project_path' => "/tmp/{$tmuxName}",
+                    'group_path' => $this->getTenantId(),
+                    'command' => '',
+                    'tool' => 'claude',
+                    'status' => 'idle',
+                    'created_at' => $tmuxInfo['created'],
+                    'reference' => $reference,
+                ]);
+
+                // Save to storage so it's tracked
+                $this->getStorage()->save($session);
+                $output->writeln(sprintf(
+                    '<comment>Discovered session from tmux: %s</comment>',
+                    $reference ?: $sessionId
+                ));
             }
 
-            // Remove deleted sessions from the list
-            foreach ($toRemove as $key) {
-                unset($sessions[$key]);
+            // Detect live status from tmux pane content
+            $content = $tmux->capturePaneByName($tmuxName, 20);
+            $newStatus = $detector->detect($content);
+            if ($newStatus !== $session->status) {
+                $session->status = $newStatus;
+                $this->getStorage()->save($session);
             }
-            $sessions = array_values($sessions);
+
+            // Apply group filter if specified
+            if ($groupFilter && $session->groupPath !== $groupFilter &&
+                !str_starts_with($session->groupPath, $groupFilter . '/')) {
+                continue;
+            }
+
+            $sessions[] = $session;
+        }
+
+        // Clean up stored sessions that no longer exist in tmux
+        foreach ($storedByTmuxName as $tmuxName => $orphanedSession) {
+            $this->getStorage()->delete($orphanedSession->id);
+            $output->writeln(sprintf(
+                '<comment>Removed stopped session: %s (%s)</comment>',
+                $orphanedSession->title,
+                $orphanedSession->getShortId()
+            ));
         }
 
         if ($jsonOutput) {

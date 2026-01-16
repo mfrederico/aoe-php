@@ -246,4 +246,102 @@ class Storage
     {
         return count($this->loadAll());
     }
+
+    /**
+     * Load sessions synced with tmux (source of truth)
+     *
+     * This queries tmux first, then matches against storage for metadata.
+     * Sessions found in tmux but not in storage are added.
+     * Sessions in storage but not in tmux are removed.
+     *
+     * @return Instance[]
+     */
+    public function loadAllSynced(): array
+    {
+        $tmux = new \Aoe\Tmux\TmuxService($this->tenantId);
+        $detector = new \Aoe\Tmux\StatusDetector();
+        $tmuxSessions = $tmux->listSessions();
+
+        // Load stored sessions for metadata lookup
+        $storedSessions = $this->loadAll();
+        $storedByTmuxName = [];
+        foreach ($storedSessions as $stored) {
+            $storedByTmuxName[$stored->getTmuxName()] = $stored;
+        }
+
+        // Build session list from tmux (source of truth)
+        $sessions = [];
+        foreach ($tmuxSessions as $sessionId => $tmuxInfo) {
+            $tmuxName = $tmuxInfo['name'];
+
+            if (isset($storedByTmuxName[$tmuxName])) {
+                // Found in storage - use stored metadata
+                $session = $storedByTmuxName[$tmuxName];
+                unset($storedByTmuxName[$tmuxName]); // Mark as matched
+            } else {
+                // Not in storage - create session from tmux info
+                // Parse session name: aoe-{tenant}-{reference}-{shortId}
+                $parts = explode('-', $tmuxName);
+                $shortId = end($parts);
+                // Reference is everything between tenant and shortId
+                $reference = implode('-', array_slice($parts, 2, -1));
+
+                // Create session with the actual short ID from tmux name
+                $fullId = str_pad($shortId, 16, '0');
+
+                $session = Instance::fromArray([
+                    'id' => $fullId,
+                    'tenant_id' => $this->tenantId,
+                    'title' => $reference ?: $sessionId,
+                    'project_path' => "/tmp/{$tmuxName}",
+                    'group_path' => $this->tenantId,
+                    'command' => '',
+                    'tool' => 'claude',
+                    'status' => 'idle',
+                    'created_at' => $tmuxInfo['created'],
+                    'reference' => $reference,
+                ]);
+
+                // Save to storage
+                $this->save($session);
+            }
+
+            // Detect live status from tmux pane content
+            $content = $tmux->capturePaneByName($tmuxName, 20);
+            $newStatus = $detector->detect($content);
+            if ($newStatus !== $session->status) {
+                $session->status = $newStatus;
+                $this->save($session);
+            }
+
+            $sessions[] = $session;
+        }
+
+        // Clean up stored sessions that no longer exist in tmux
+        foreach ($storedByTmuxName as $tmuxName => $orphanedSession) {
+            $this->delete($orphanedSession->id);
+        }
+
+        // Update cache with synced sessions
+        $this->cache = $sessions;
+
+        return $sessions;
+    }
+
+    /**
+     * Find a session by reference (e.g., issue key) synced with tmux
+     *
+     * @param string $reference The reference to search for
+     * @return Instance|null
+     */
+    public function findByReferenceSynced(string $reference): ?Instance
+    {
+        $sessions = $this->loadAllSynced();
+        foreach ($sessions as $session) {
+            if ($session->reference === $reference) {
+                return $session;
+            }
+        }
+        return null;
+    }
 }
