@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Aoe\Cli\Commands;
 
 use Aoe\Session\Status;
-use Aoe\Tenant\TenantRequiredException;
+use Aoe\Workspace\WorkspaceRequiredException;
 use Aoe\Tmux\StatusDetector;
 use Aoe\Tmux\TmuxService;
 use Symfony\Component\Console\Command\Command;
@@ -17,7 +17,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Show detailed status of a session
  *
- * Usage: bin/aoe --tenant=X session:status <id>
+ * Usage: bin/aoe --workspace=X session:status <id>
  */
 class SessionStatusCommand extends BaseCommand
 {
@@ -39,7 +39,7 @@ class SessionStatusCommand extends BaseCommand
     {
         try {
             $this->initialize($input, $output);
-        } catch (TenantRequiredException) {
+        } catch (WorkspaceRequiredException) {
             return Command::FAILURE;
         }
         $idOrPrefix = $input->getArgument('id');
@@ -54,7 +54,7 @@ class SessionStatusCommand extends BaseCommand
             return self::FAILURE;
         }
 
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
         $tmuxName = $session->getTmuxName();
         $tmuxExists = $tmux->sessionExistsByName($tmuxName);
 
@@ -62,7 +62,7 @@ class SessionStatusCommand extends BaseCommand
         $info = [
             'id' => $session->id,
             'title' => $session->title,
-            'tenant' => $session->tenantId,
+            'workspace' => $session->workspaceId,
             'tool' => $session->tool,
             'status' => $session->status->value,
             'project_path' => $session->projectPath,
@@ -127,7 +127,7 @@ class SessionStatusCommand extends BaseCommand
         $output->writeln("");
 
         $output->writeln("  <comment>ID:</comment>           {$session->id}");
-        $output->writeln("  <comment>Tenant:</comment>       {$session->tenantId}");
+        $output->writeln("  <comment>Tenant:</comment>       {$session->workspaceId}");
         $output->writeln("  <comment>Status:</comment>       {$session->status->icon()} {$session->status->label()}");
         $output->writeln("  <comment>Tool:</comment>         {$session->tool}");
         $output->writeln("  <comment>Path:</comment>         {$session->projectPath}");

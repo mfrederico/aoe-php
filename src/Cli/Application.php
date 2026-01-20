@@ -13,7 +13,7 @@ use Aoe\Cli\Commands\SessionStartCommand;
 use Aoe\Cli\Commands\SessionStatusCommand;
 use Aoe\Cli\Commands\SessionStopCommand;
 use Aoe\Cli\Commands\StatusCommand;
-use Aoe\Cli\Commands\TenantCommand;
+use Aoe\Cli\Commands\WorkspaceCommand;
 use Symfony\Component\Console\Application as ConsoleApplication;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -22,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * AOE CLI Application
  *
  * Main entry point for the command-line interface.
- * All tenant-scoped commands require --tenant option or AOE_TENANT env var.
+ * All workspace-scoped commands require --workspace option or AOE_WORKSPACE env var.
  */
 class Application extends ConsoleApplication
 {
@@ -57,7 +57,7 @@ class Application extends ConsoleApplication
         $output->writeln('<info>AOE - AI Agent Session Manager</info>');
         $output->writeln('');
         $output->writeln('<comment>Usage:</comment>');
-        $output->writeln('  aoe --tenant=<tenant> <command> [options]');
+        $output->writeln('  aoe --workspace=<workspace> <command> [options]');
         $output->writeln('');
         $output->writeln('<comment>Session List:</comment>');
         $output->writeln('  <info>sessions</info>                      List all sessions (cached status)');
@@ -79,17 +79,17 @@ class Application extends ConsoleApplication
         $output->writeln('  <info>status</info>                        Show status summary');
         $output->writeln('');
         $output->writeln('<comment>Tenants:</comment>');
-        $output->writeln('  <info>tenant:list</info>                   List available tenants');
+        $output->writeln('  <info>workspace:list</info>                   List available workspaces');
         $output->writeln('');
         $output->writeln('<comment>Status Detection:</comment>');
         $output->writeln('  --refresh / -u reads tmux pane content to detect if agent is:');
         $output->writeln('  Running (actively processing), Waiting (needs input), Idle, or Error');
         $output->writeln('');
         $output->writeln('<comment>Examples:</comment>');
-        $output->writeln('  aoe --tenant=gwt sessions -r             # Check live status');
-        $output->writeln('  aoe --tenant=gwt session:status fd95 -u  # Update specific session');
-        $output->writeln('  aoe --tenant=gwt session:attach fd95     # Attach to session');
-        $output->writeln('  aoe --tenant=gwt remove fd95 --force     # Remove and kill tmux');
+        $output->writeln('  aoe --workspace=gwt sessions -r             # Check live status');
+        $output->writeln('  aoe --workspace=gwt session:status fd95 -u  # Update specific session');
+        $output->writeln('  aoe --workspace=gwt session:attach fd95     # Attach to session');
+        $output->writeln('  aoe --workspace=gwt remove fd95 --force     # Remove and kill tmux');
     }
 
     /**
@@ -97,16 +97,16 @@ class Application extends ConsoleApplication
      */
     private function registerCommands(): void
     {
-        // Tenant commands (no tenant required)
-        $this->add(new TenantCommand());
+        // Tenant commands (no workspace required)
+        $this->add(new WorkspaceCommand());
 
-        // Session management commands (tenant required)
+        // Session management commands (workspace required)
         $this->add(new AddCommand());
         $this->add(new ListCommand());
         $this->add(new RemoveCommand());
         $this->add(new StatusCommand());
 
-        // Tmux session commands (tenant required)
+        // Tmux session commands (workspace required)
         $this->add(new SessionStartCommand());
         $this->add(new SessionStopCommand());
         $this->add(new SessionRestartCommand());

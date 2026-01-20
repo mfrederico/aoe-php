@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Aoe\Cli\Commands;
 
 use Aoe\Session\Status;
-use Aoe\Tenant\TenantRequiredException;
+use Aoe\Workspace\WorkspaceRequiredException;
 use Aoe\Tmux\TmuxService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Stop a session's tmux session
  *
- * Usage: bin/aoe --tenant=X session:stop <id>
+ * Usage: bin/aoe --workspace=X session:stop <id>
  */
 class SessionStopCommand extends BaseCommand
 {
@@ -37,7 +37,7 @@ class SessionStopCommand extends BaseCommand
     {
         try {
             $this->initialize($input, $output);
-        } catch (TenantRequiredException) {
+        } catch (WorkspaceRequiredException) {
             return Command::FAILURE;
         }
         $idOrPrefix = $input->getArgument('id');
@@ -51,7 +51,7 @@ class SessionStopCommand extends BaseCommand
             return self::FAILURE;
         }
 
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
         $tmuxName = $tmux->buildSessionName($session->id);
 
         // Check if tmux session exists

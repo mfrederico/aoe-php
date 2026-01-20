@@ -4,32 +4,32 @@ declare(strict_types=1);
 
 namespace Aoe\Tmux;
 
-use Aoe\Tenant\TenantContext;
+use Aoe\Workspace\WorkspaceContext;
 
 /**
  * TmuxService - Wrapper for tmux CLI commands
  *
- * All session names are prefixed with tenant ID: aoe-{tenant}-{session_id}
- * This ensures isolation between tenants and avoids collisions with
+ * All session names are prefixed with workspace ID: aoe-{workspace}-{session_id}
+ * This ensures isolation between workspaces and avoids collisions with
  * myctobot's existing aidev-{domain}-{member}-{issue} sessions.
  */
 class TmuxService
 {
-    private string $tenantId;
+    private string $workspaceId;
     private string $prefix;
 
-    public function __construct(?string $tenantId = null, string $prefix = 'aoe')
+    public function __construct(?string $workspaceId = null, string $prefix = 'aoe')
     {
-        $this->tenantId = $tenantId ?? TenantContext::get();
+        $this->workspaceId = $workspaceId ?? WorkspaceContext::get();
         $this->prefix = $prefix;
     }
 
     /**
-     * Build full tmux session name: aoe-{tenant}-{sessionId}
+     * Build full tmux session name: aoe-{workspace}-{sessionId}
      */
     public function buildSessionName(string $sessionId): string
     {
-        return sprintf('%s-%s-%s', $this->prefix, $this->tenantId, $sessionId);
+        return sprintf('%s-%s-%s', $this->prefix, $this->workspaceId, $sessionId);
     }
 
     /**
@@ -123,13 +123,13 @@ class TmuxService
     }
 
     /**
-     * List all tmux sessions for this tenant
+     * List all tmux sessions for this workspace
      *
      * @return array<string, array{name: string, created: string, attached: bool}>
      */
     public function listSessions(): array
     {
-        $prefix = sprintf('%s-%s-', $this->prefix, $this->tenantId);
+        $prefix = sprintf('%s-%s-', $this->prefix, $this->workspaceId);
         $cmd = "tmux list-sessions -F '#{session_name}|#{session_created}|#{session_attached}' 2>/dev/null";
         exec($cmd, $output, $exitCode);
 
@@ -146,7 +146,7 @@ class TmuxService
 
             [$name, $created, $attached] = $parts;
 
-            // Only include sessions for this tenant
+            // Only include sessions for this workspace
             if (!str_starts_with($name, $prefix)) {
                 continue;
             }
@@ -387,7 +387,7 @@ class TmuxService
     /**
      * Get domain ID from myctobot config URL
      *
-     * Extracts tenant/domain from CONFIG_URL environment variable:
+     * Extracts workspace/domain from CONFIG_URL environment variable:
      * - footest4.myctobot.ai -> footest4
      * - myctobot.ai -> default
      * - custom domains -> as-is
@@ -453,10 +453,10 @@ class TmuxService
     }
 
     /**
-     * Get the tenant ID this service is configured for
+     * Get the workspace ID this service is configured for
      */
-    public function getTenantId(): string
+    public function getWorkspaceId(): string
     {
-        return $this->tenantId;
+        return $this->workspaceId;
     }
 }

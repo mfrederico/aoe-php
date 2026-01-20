@@ -6,7 +6,7 @@ namespace Aoe\Cli\Commands;
 
 use Aoe\Session\Instance;
 use Aoe\Session\Status;
-use Aoe\Tenant\TenantRequiredException;
+use Aoe\Workspace\WorkspaceRequiredException;
 use Aoe\Tmux\TmuxService;
 use Aoe\Tmux\StatusDetector;
 use Symfony\Component\Console\Command\Command;
@@ -41,14 +41,14 @@ class ListCommand extends BaseCommand
                 'Output in JSON format'
             )
             ->setHelp(<<<'HELP'
-List all sessions for the specified tenant.
+List all sessions for the specified workspace.
 
 Status is always detected live from tmux (source of truth).
 
 Examples:
-  aoe --tenant=acme sessions
-  aoe --tenant=acme sessions --group="frontend"
-  aoe --tenant=acme sessions --json
+  aoe --workspace=acme sessions
+  aoe --workspace=acme sessions --group="frontend"
+  aoe --workspace=acme sessions --json
 HELP
             );
     }
@@ -57,7 +57,7 @@ HELP
     {
         try {
             $this->initialize($input, $output);
-        } catch (TenantRequiredException) {
+        } catch (WorkspaceRequiredException) {
             return Command::FAILURE;
         }
 
@@ -66,7 +66,7 @@ HELP
 
         // TMUX IS THE SOURCE OF TRUTH
         // Query tmux first, then match against storage for metadata
-        $tmux = new TmuxService($this->getTenantId());
+        $tmux = new TmuxService($this->getWorkspaceId());
         $detector = new StatusDetector();
         $tmuxSessions = $tmux->listSessions();
 
@@ -88,10 +88,10 @@ HELP
                 unset($storedByTmuxName[$tmuxName]); // Mark as matched
             } else {
                 // Not in storage - create session from tmux info
-                // Parse session name: aoe-{tenant}-{reference}-{shortId}
+                // Parse session name: aoe-{workspace}-{reference}-{shortId}
                 $parts = explode('-', $tmuxName);
                 $shortId = end($parts);
-                // Reference is everything between tenant and shortId
+                // Reference is everything between workspace and shortId
                 $reference = implode('-', array_slice($parts, 2, -1));
 
                 // Create session with the actual short ID from tmux name
@@ -100,10 +100,10 @@ HELP
 
                 $session = Instance::fromArray([
                     'id' => $fullId,
-                    'tenant_id' => $this->getTenantId(),
+                    'workspace_id' => $this->getWorkspaceId(),
                     'title' => $reference ?: $sessionId,
                     'project_path' => "/tmp/{$tmuxName}",
-                    'group_path' => $this->getTenantId(),
+                    'group_path' => $this->getWorkspaceId(),
                     'command' => '',
                     'tool' => 'claude',
                     'status' => 'idle',
@@ -158,7 +158,7 @@ HELP
             $output->writeln('<comment>No sessions found.</comment>');
             $output->writeln('');
             $output->writeln('Create a session with:');
-            $output->writeln("  aoe --tenant={$this->getTenantId()} add /path/to/project");
+            $output->writeln("  aoe --workspace={$this->getWorkspaceId()} add /path/to/project");
             return Command::SUCCESS;
         }
 

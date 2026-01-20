@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Aoe\Cli\Commands;
 
-use Aoe\Tenant\TenantRequiredException;
+use Aoe\Workspace\WorkspaceRequiredException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -40,8 +40,8 @@ class RemoveCommand extends BaseCommand
 Remove a session by its ID (or ID prefix).
 
 Examples:
-  aoe --tenant=acme remove abc12345
-  aoe --tenant=acme remove abc1 --force
+  aoe --workspace=acme remove abc12345
+  aoe --workspace=acme remove abc1 --force
 HELP
             );
     }
@@ -50,7 +50,7 @@ HELP
     {
         try {
             $this->initialize($input, $output);
-        } catch (TenantRequiredException) {
+        } catch (WorkspaceRequiredException) {
             return Command::FAILURE;
         }
 

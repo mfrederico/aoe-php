@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Aoe\Config;
 
 /**
- * Configuration loader that merges defaults with tenant-specific settings
+ * Configuration loader that merges defaults with workspace-specific settings
  *
- * Reads tenant-specific configuration from myctobot's INI files:
- * myctobot/conf/config.{tenant}.ini under the [aoe] section
+ * Reads workspace-specific configuration from myctobot's INI files:
+ * myctobot/conf/config.{workspace}.ini under the [aoe] section
  */
 class AoeConfig
 {
@@ -40,38 +40,38 @@ class AoeConfig
     }
 
     /**
-     * Get configuration merged with tenant-specific overrides
+     * Get configuration merged with workspace-specific overrides
      *
-     * @param string $tenantId The tenant ID
+     * @param string $workspaceId The workspace ID
      * @return array Merged configuration
      */
-    public function forTenant(string $tenantId): array
+    public function forWorkspace(string $workspaceId): array
     {
-        if (isset($this->cache[$tenantId])) {
-            return $this->cache[$tenantId];
+        if (isset($this->cache[$workspaceId])) {
+            return $this->cache[$workspaceId];
         }
 
-        $tenantConfig = $this->loadTenantIni($tenantId);
-        $aoeConfig = $tenantConfig['aoe'] ?? [];
+        $workspaceConfig = $this->loadWorkspaceIni($workspaceId);
+        $aoeConfig = $workspaceConfig['aoe'] ?? [];
 
         // Deep merge the configs
         $merged = $this->deepMerge($this->defaults, $aoeConfig);
 
-        $this->cache[$tenantId] = $merged;
+        $this->cache[$workspaceId] = $merged;
         return $merged;
     }
 
     /**
-     * Get a specific config value for a tenant
+     * Get a specific config value for a workspace
      *
-     * @param string $tenantId The tenant ID
+     * @param string $workspaceId The workspace ID
      * @param string $key Dot-notation key (e.g., 'websocket.port')
      * @param mixed $default Default value if key not found
      * @return mixed The config value
      */
-    public function get(string $tenantId, string $key, mixed $default = null): mixed
+    public function get(string $workspaceId, string $key, mixed $default = null): mixed
     {
-        $config = $this->forTenant($tenantId);
+        $config = $this->forWorkspace($workspaceId);
         return $this->getByDotNotation($config, $key, $default);
     }
 
@@ -84,9 +84,9 @@ class AoeConfig
     }
 
     /**
-     * List all available tenants by scanning config files
+     * List all available workspaces by scanning config files
      *
-     * @return array List of tenant IDs
+     * @return array List of workspace IDs
      */
     public function listTenants(): array
     {
@@ -97,42 +97,42 @@ class AoeConfig
             return [];
         }
 
-        $tenants = [];
+        $workspaces = [];
         foreach ($files as $file) {
             if (preg_match('/config\.(.+)\.ini$/', basename($file), $matches)) {
-                $tenants[] = $matches[1];
+                $workspaces[] = $matches[1];
             }
         }
 
-        sort($tenants);
-        return $tenants;
+        sort($workspaces);
+        return $workspaces;
     }
 
     /**
-     * Check if a tenant has a configuration file
+     * Check if a workspace has a configuration file
      */
-    public function tenantExists(string $tenantId): bool
+    public function workspaceExists(string $workspaceId): bool
     {
-        $file = "{$this->myctoConfPath}/config.{$tenantId}.ini";
+        $file = "{$this->myctoConfPath}/config.{$workspaceId}.ini";
         return file_exists($file);
     }
 
     /**
-     * Get the storage path for a tenant
+     * Get the storage path for a workspace
      */
-    public function getStoragePath(string $tenantId): string
+    public function getStoragePath(string $workspaceId): string
     {
-        $config = $this->forTenant($tenantId);
+        $config = $this->forWorkspace($workspaceId);
         $basePath = $config['storage_path'] ?? $_SERVER['HOME'] . '/.aoe-php';
-        return "{$basePath}/tenants/{$tenantId}";
+        return "{$basePath}/workspaces/{$workspaceId}";
     }
 
     /**
-     * Load tenant-specific INI configuration
+     * Load workspace-specific INI configuration
      */
-    private function loadTenantIni(string $tenantId): array
+    private function loadWorkspaceIni(string $workspaceId): array
     {
-        $file = "{$this->myctoConfPath}/config.{$tenantId}.ini";
+        $file = "{$this->myctoConfPath}/config.{$workspaceId}.ini";
 
         if (!file_exists($file)) {
             return [];

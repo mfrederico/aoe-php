@@ -6,28 +6,28 @@ namespace Aoe\Cli\Commands;
 
 use Aoe\Config\AoeConfig;
 use Aoe\Session\Storage;
-use Aoe\Tenant\TenantContext;
-use Aoe\Tenant\TenantRequiredException;
-use Aoe\Tenant\TenantResolver;
+use Aoe\Workspace\WorkspaceContext;
+use Aoe\Workspace\WorkspaceRequiredException;
+use Aoe\Workspace\WorkspaceResolver;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Base command class with tenant support
+ * Base command class with workspace support
  *
  * Provides common functionality for all AOE commands including
- * tenant resolution, configuration, and storage access.
+ * workspace resolution, configuration, and storage access.
  */
 abstract class BaseCommand extends Command
 {
     protected ?AoeConfig $config = null;
     protected ?Storage $storage = null;
-    protected ?string $tenantId = null;
+    protected ?string $workspaceId = null;
 
     /**
-     * Whether this command requires a tenant
+     * Whether this command requires a workspace
      */
     protected bool $requiresTenant = true;
 
@@ -35,10 +35,10 @@ abstract class BaseCommand extends Command
     {
         if ($this->requiresTenant) {
             $this->addOption(
-                'tenant',
+                'workspace',
                 't',
                 InputOption::VALUE_REQUIRED,
-                'Tenant ID (or set AOE_TENANT environment variable)'
+                'Tenant ID (or set AOE_WORKSPACE environment variable)'
             );
         }
     }
@@ -53,30 +53,30 @@ abstract class BaseCommand extends Command
     }
 
     /**
-     * Initialize tenant context
+     * Initialize workspace context
      */
     protected function initializeTenant(InputInterface $input, OutputInterface $output): void
     {
-        $resolver = new TenantResolver();
+        $resolver = new WorkspaceResolver();
 
         try {
-            $explicit = $input->getOption('tenant');
-            $this->tenantId = $resolver->resolveAndSet($explicit);
+            $explicit = $input->getOption('workspace');
+            $this->workspaceId = $resolver->resolveAndSet($explicit);
             $this->storage = new Storage(
-                $this->tenantId,
-                $this->config->get($this->tenantId, 'storage_path')
+                $this->workspaceId,
+                $this->config->get($this->workspaceId, 'storage_path')
             );
-        } catch (TenantRequiredException $e) {
+        } catch (WorkspaceRequiredException $e) {
             $output->writeln('<error>' . $e->getMessage() . '</error>');
             $output->writeln('');
-            $output->writeln('Available tenants:');
+            $output->writeln('Available workspaces:');
 
-            $tenants = $this->config->listTenants();
-            if (empty($tenants)) {
-                $output->writeln('  <comment>No tenants configured. Add config files to myctobot/conf/</comment>');
+            $workspaces = $this->config->listTenants();
+            if (empty($workspaces)) {
+                $output->writeln('  <comment>No workspaces configured. Add config files to myctobot/conf/</comment>');
             } else {
-                foreach ($tenants as $tenant) {
-                    $output->writeln("  - {$tenant}");
+                foreach ($workspaces as $workspace) {
+                    $output->writeln("  - {$workspace}");
                 }
             }
 
@@ -85,14 +85,14 @@ abstract class BaseCommand extends Command
     }
 
     /**
-     * Get the current tenant ID
+     * Get the current workspace ID
      */
-    protected function getTenantId(): string
+    protected function getWorkspaceId(): string
     {
-        if ($this->tenantId === null) {
-            return TenantContext::get();
+        if ($this->workspaceId === null) {
+            return WorkspaceContext::get();
         }
-        return $this->tenantId;
+        return $this->workspaceId;
     }
 
     /**
@@ -118,10 +118,10 @@ abstract class BaseCommand extends Command
     }
 
     /**
-     * Get tenant-specific config value
+     * Get workspace-specific config value
      */
     protected function getConfigValue(string $key, mixed $default = null): mixed
     {
-        return $this->getConfig()->get($this->getTenantId(), $key, $default);
+        return $this->getConfig()->get($this->getWorkspaceId(), $key, $default);
     }
 }

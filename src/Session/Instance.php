@@ -14,13 +14,13 @@ use Ramsey\Uuid\Uuid;
  * Represents an AI agent session instance
  *
  * This is the core entity that tracks a running or configured AI coding agent session.
- * Each instance is associated with a tenant and maps to a tmux session.
+ * Each instance is associated with a workspace and maps to a tmux session.
  */
 class Instance implements JsonSerializable
 {
     public function __construct(
         public readonly string $id,
-        public readonly string $tenantId,
+        public readonly string $workspaceId,
         public string $title,
         public string $projectPath,
         public string $groupPath,
@@ -39,7 +39,7 @@ class Instance implements JsonSerializable
      * Create a new instance with a generated ID
      */
     public static function create(
-        string $tenantId,
+        string $workspaceId,
         string $title,
         string $projectPath,
         string $tool = 'claude',
@@ -53,7 +53,7 @@ class Instance implements JsonSerializable
 
         return new self(
             id: $id,
-            tenantId: $tenantId,
+            workspaceId: $workspaceId,
             title: $title,
             projectPath: $projectPath,
             groupPath: $groupPath,
@@ -72,7 +72,7 @@ class Instance implements JsonSerializable
     {
         return new self(
             id: $data['id'],
-            tenantId: $data['tenant_id'] ?? $data['tenantId'] ?? '',
+            workspaceId: $data['workspace_id'] ?? $data['workspaceId'] ?? '',
             title: $data['title'] ?? '',
             projectPath: $data['project_path'] ?? $data['projectPath'] ?? '',
             groupPath: $data['group_path'] ?? $data['groupPath'] ?? '',
@@ -96,16 +96,16 @@ class Instance implements JsonSerializable
     /**
      * Get the tmux session name for this instance
      *
-     * Format: aoe-{tenantId}-{reference}-{shortId} (if reference set)
-     *         aoe-{tenantId}-{id} (if no reference)
+     * Format: aoe-{workspaceId}-{reference}-{shortId} (if reference set)
+     *         aoe-{workspaceId}-{id} (if no reference)
      */
     public function getTmuxName(): string
     {
         if ($this->reference) {
             $safeRef = $this->sanitizeReference($this->reference);
-            return "aoe-{$this->tenantId}-{$safeRef}-{$this->getShortId()}";
+            return "aoe-{$this->workspaceId}-{$safeRef}-{$this->getShortId()}";
         }
-        return "aoe-{$this->tenantId}-{$this->id}";
+        return "aoe-{$this->workspaceId}-{$this->id}";
     }
 
     /**
@@ -180,7 +180,7 @@ class Instance implements JsonSerializable
      */
     public function isTmuxRunning(): bool
     {
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
         return $tmux->sessionExists($this->id);
     }
 
@@ -192,7 +192,7 @@ class Instance implements JsonSerializable
      */
     public function start(?string $customCommand = null): bool
     {
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
 
         // Don't start if already running
         if ($tmux->sessionExists($this->id)) {
@@ -217,7 +217,7 @@ class Instance implements JsonSerializable
      */
     public function stop(): bool
     {
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
 
         // Already stopped
         if (!$tmux->sessionExists($this->id)) {
@@ -255,7 +255,7 @@ class Instance implements JsonSerializable
      */
     public function captureOutput(int $lines = 50): ?string
     {
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
 
         if (!$tmux->sessionExists($this->id)) {
             return null;
@@ -272,7 +272,7 @@ class Instance implements JsonSerializable
      */
     public function sendKeys(string $keys): bool
     {
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
 
         if (!$tmux->sessionExists($this->id)) {
             return false;
@@ -288,7 +288,7 @@ class Instance implements JsonSerializable
      */
     public function refreshStatus(): Status
     {
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
 
         // If no tmux session, it's stopped
         if (!$tmux->sessionExists($this->id)) {
@@ -311,7 +311,7 @@ class Instance implements JsonSerializable
     {
         return [
             'id' => $this->id,
-            'tenant_id' => $this->tenantId,
+            'workspace_id' => $this->workspaceId,
             'title' => $this->title,
             'project_path' => $this->projectPath,
             'group_path' => $this->groupPath,

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Aoe\Cli\Commands;
 
 use Aoe\Session\Instance;
-use Aoe\Tenant\TenantRequiredException;
+use Aoe\Workspace\WorkspaceRequiredException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -59,11 +59,11 @@ class AddCommand extends BaseCommand
 Add a new AI agent session for the specified project.
 
 Examples:
-  aoe --tenant=acme add
-  aoe --tenant=acme add /path/to/project
-  aoe --tenant=acme add --title="My Project" --group="frontend/web"
-  aoe --tenant=acme add --tool=opencode
-  aoe --tenant=acme add --cmd="claude --model opus"
+  aoe --workspace=acme add
+  aoe --workspace=acme add /path/to/project
+  aoe --workspace=acme add --title="My Project" --group="frontend/web"
+  aoe --workspace=acme add --tool=opencode
+  aoe --workspace=acme add --cmd="claude --model opus"
 HELP
             );
     }
@@ -72,7 +72,7 @@ HELP
     {
         try {
             $this->initialize($input, $output);
-        } catch (TenantRequiredException) {
+        } catch (WorkspaceRequiredException) {
             return Command::FAILURE;
         }
 
@@ -100,7 +100,7 @@ HELP
 
         // Create the instance
         $instance = Instance::create(
-            tenantId: $this->getTenantId(),
+            workspaceId: $this->getWorkspaceId(),
             title: $title,
             projectPath: $path,
             tool: $tool,
@@ -128,7 +128,7 @@ HELP
 
         $output->writeln('');
         $output->writeln("To start this session:");
-        $output->writeln("  aoe --tenant={$this->getTenantId()} session:start {$instance->getShortId()}");
+        $output->writeln("  aoe --workspace={$this->getWorkspaceId()} session:start {$instance->getShortId()}");
 
         return Command::SUCCESS;
     }

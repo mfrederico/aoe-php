@@ -9,27 +9,27 @@ use RuntimeException;
 /**
  * JSON file-based storage for session instances
  *
- * Each tenant has isolated storage at:
- * {basePath}/tenants/{tenantId}/sessions.json
+ * Each workspace has isolated storage at:
+ * {basePath}/workspaces/{workspaceId}/sessions.json
  */
 class Storage
 {
-    private string $tenantId;
+    private string $workspaceId;
     private string $basePath;
     private ?array $cache = null;
 
-    public function __construct(string $tenantId, ?string $basePath = null)
+    public function __construct(string $workspaceId, ?string $basePath = null)
     {
-        $this->tenantId = $tenantId;
+        $this->workspaceId = $workspaceId;
         $this->basePath = $basePath ?? ($_SERVER['HOME'] . '/.aoe-php');
     }
 
     /**
-     * Get the storage directory for this tenant
+     * Get the storage directory for this workspace
      */
     public function getStorageDir(): string
     {
-        return "{$this->basePath}/tenants/{$this->tenantId}";
+        return "{$this->basePath}/workspaces/{$this->workspaceId}";
     }
 
     /**
@@ -62,7 +62,7 @@ class Storage
     }
 
     /**
-     * Load all sessions for this tenant
+     * Load all sessions for this workspace
      *
      * @return Instance[]
      */
@@ -91,8 +91,8 @@ class Storage
 
         $sessions = [];
         foreach ($data['sessions'] ?? [] as $sessionData) {
-            // Ensure tenant ID is set
-            $sessionData['tenant_id'] = $this->tenantId;
+            // Ensure workspace ID is set
+            $sessionData['workspace_id'] = $this->workspaceId;
             $sessions[] = Instance::fromArray($sessionData);
         }
 
@@ -258,7 +258,7 @@ class Storage
      */
     public function loadAllSynced(): array
     {
-        $tmux = new \Aoe\Tmux\TmuxService($this->tenantId);
+        $tmux = new \Aoe\Tmux\TmuxService($this->workspaceId);
         $detector = new \Aoe\Tmux\StatusDetector();
         $tmuxSessions = $tmux->listSessions();
 
@@ -280,10 +280,10 @@ class Storage
                 unset($storedByTmuxName[$tmuxName]); // Mark as matched
             } else {
                 // Not in storage - create session from tmux info
-                // Parse session name: aoe-{tenant}-{reference}-{shortId}
+                // Parse session name: aoe-{workspace}-{reference}-{shortId}
                 $parts = explode('-', $tmuxName);
                 $shortId = end($parts);
-                // Reference is everything between tenant and shortId
+                // Reference is everything between workspace and shortId
                 $reference = implode('-', array_slice($parts, 2, -1));
 
                 // Create session with the actual short ID from tmux name
@@ -291,10 +291,10 @@ class Storage
 
                 $session = Instance::fromArray([
                     'id' => $fullId,
-                    'tenant_id' => $this->tenantId,
+                    'workspace_id' => $this->workspaceId,
                     'title' => $reference ?: $sessionId,
                     'project_path' => "/tmp/{$tmuxName}",
-                    'group_path' => $this->tenantId,
+                    'group_path' => $this->workspaceId,
                     'command' => '',
                     'tool' => 'claude',
                     'status' => 'idle',

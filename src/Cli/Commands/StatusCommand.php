@@ -6,7 +6,7 @@ namespace Aoe\Cli\Commands;
 
 use Aoe\Session\Instance;
 use Aoe\Session\Status;
-use Aoe\Tenant\TenantRequiredException;
+use Aoe\Workspace\WorkspaceRequiredException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -32,11 +32,11 @@ class StatusCommand extends BaseCommand
                 'Output in JSON format'
             )
             ->setHelp(<<<'HELP'
-Show a summary of session statuses for the specified tenant.
+Show a summary of session statuses for the specified workspace.
 
 Examples:
-  aoe --tenant=acme status
-  aoe --tenant=acme status --json
+  aoe --workspace=acme status
+  aoe --workspace=acme status --json
 HELP
             );
     }
@@ -45,7 +45,7 @@ HELP
     {
         try {
             $this->initialize($input, $output);
-        } catch (TenantRequiredException) {
+        } catch (WorkspaceRequiredException) {
             return Command::FAILURE;
         }
 
@@ -76,7 +76,7 @@ HELP
 
         if ($jsonOutput) {
             $output->writeln(json_encode([
-                'tenant' => $this->getTenantId(),
+                'workspace' => $this->getWorkspaceId(),
                 'total' => count($sessions),
                 'active' => count($activeSessions),
                 'by_status' => $statusCounts,
@@ -85,7 +85,7 @@ HELP
             return Command::SUCCESS;
         }
 
-        $output->writeln("<info>Session Status for tenant: {$this->getTenantId()}</info>");
+        $output->writeln("<info>Session Status for workspace: {$this->getWorkspaceId()}</info>");
         $output->writeln('');
 
         if (empty($sessions)) {

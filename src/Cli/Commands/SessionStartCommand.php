@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Aoe\Cli\Commands;
 
 use Aoe\Session\Status;
-use Aoe\Tenant\TenantRequiredException;
+use Aoe\Workspace\WorkspaceRequiredException;
 use Aoe\Tmux\TmuxService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Start a session's tmux session
  *
- * Usage: bin/aoe --tenant=X session:start <id>
+ * Usage: bin/aoe --workspace=X session:start <id>
  */
 class SessionStartCommand extends BaseCommand
 {
@@ -37,7 +37,7 @@ class SessionStartCommand extends BaseCommand
     {
         try {
             $this->initialize($input, $output);
-        } catch (TenantRequiredException) {
+        } catch (WorkspaceRequiredException) {
             return Command::FAILURE;
         }
         $idOrPrefix = $input->getArgument('id');
@@ -51,7 +51,7 @@ class SessionStartCommand extends BaseCommand
             return self::FAILURE;
         }
 
-        $tmux = new TmuxService($this->tenantId);
+        $tmux = new TmuxService($this->workspaceId);
 
         // Check if already running
         if ($tmux->sessionExists($session->id)) {
@@ -109,7 +109,7 @@ class SessionStartCommand extends BaseCommand
             $output->writeln("  Command: {$command}");
         }
         $output->writeln("");
-        $output->writeln("To attach: <info>bin/aoe --tenant={$this->tenantId} session:attach {$session->id}</info>");
+        $output->writeln("To attach: <info>bin/aoe --workspace={$this->workspaceId} session:attach {$session->id}</info>");
 
         return self::SUCCESS;
     }
