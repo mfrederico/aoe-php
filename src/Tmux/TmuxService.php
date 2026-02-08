@@ -270,6 +270,35 @@ class TmuxService
     }
 
     /**
+     * Paste text into a session using tmux load-buffer + paste-buffer.
+     * Unlike send-keys -l, this uses bracketed paste mode so newlines,
+     * emojis, and special characters are handled correctly as pasted content.
+     */
+    public function pasteTextByName(string $name, string $text): bool
+    {
+        $tmpFile = tempnam(sys_get_temp_dir(), 'tmux-paste-');
+        if ($tmpFile === false) {
+            return false;
+        }
+
+        file_put_contents($tmpFile, $text);
+
+        $loadCmd = sprintf('tmux load-buffer %s 2>/dev/null', escapeshellarg($tmpFile));
+        exec($loadCmd, $output, $loadExit);
+
+        if ($loadExit !== 0) {
+            unlink($tmpFile);
+            return false;
+        }
+
+        $pasteCmd = sprintf('tmux paste-buffer -t %s -d -p -r 2>/dev/null', escapeshellarg($name));
+        exec($pasteCmd, $output, $pasteExit);
+
+        unlink($tmpFile);
+        return $pasteExit === 0;
+    }
+
+    /**
      * Send Enter key
      */
     public function sendEnter(string $sessionId): bool
@@ -417,14 +446,16 @@ class TmuxService
     /**
      * Sanitize a string for use in tmux session names or filesystem paths
      *
-     * Replaces special characters with hyphens:
+     * Replaces special characters with hyphens (preserves underscores):
      * - SSI-1883 -> SSI-1883
      * - owner/repo#123 -> owner-repo-123
+     * - agent_tmp -> agent_tmp (underscores preserved for pipeline correlation)
      */
     public static function sanitize(string $input): string
     {
-        // Replace non-alphanumeric chars (except hyphen) with hyphen
-        $sanitized = preg_replace('/[^a-zA-Z0-9-]/', '-', $input);
+        // Replace non-alphanumeric chars (except hyphen and underscore) with hyphen
+        // Keep underscores for correlation with pipeline step names
+        $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '-', $input);
         // Remove consecutive hyphens
         $sanitized = preg_replace('/-+/', '-', $sanitized);
         // Trim hyphens from ends
