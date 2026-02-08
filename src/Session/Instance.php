@@ -111,18 +111,14 @@ class Instance implements JsonSerializable
     /**
      * Sanitize a reference string for use in tmux session name
      *
-     * Converts special characters to hyphens:
+     * Delegates to TmuxService::sanitize() for consistency.
      * - SSI-1883 -> SSI-1883
      * - owner/repo#123 -> owner-repo-123
+     * - agent_tmp -> agent_tmp (underscores preserved)
      */
     private function sanitizeReference(string $ref): string
     {
-        // Replace non-alphanumeric chars (except hyphen) with hyphen
-        $sanitized = preg_replace('/[^a-zA-Z0-9-]/', '-', $ref);
-        // Remove consecutive hyphens
-        $sanitized = preg_replace('/-+/', '-', $sanitized);
-        // Trim hyphens from ends
-        return trim($sanitized, '-');
+        return TmuxService::sanitize($ref);
     }
 
     /**
