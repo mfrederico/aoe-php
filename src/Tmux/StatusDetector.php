@@ -108,19 +108,10 @@ class StatusDetector
             $content = implode("\n", $lines);
         }
 
-        // Check for error first (highest priority)
-        if ($this->matchesAny($content, $this->errorPatterns)) {
-            return Status::Error;
-        }
-
-        // Check for waiting state (permission prompts, y/n questions)
-        if ($this->matchesAny($content, $this->waitingPatterns)) {
-            return Status::Waiting;
-        }
-
-        // Claude Code detection: "(ctrl+c to interrupt" = actively working
-        // This is the ONLY reliable indicator - any other pattern matching
-        // (like "Bash(" or spinners) can appear in history/scrollback
+        // Running has highest priority — "(ctrl+c to interrupt)" is the
+        // definitive Claude Code status bar indicator. Must be checked before
+        // error/waiting patterns, which can match on code OUTPUT (test failures,
+        // error messages the agent is reviewing, etc.)
         if (preg_match('/\(ctrl\+c to interrupt/i', $content)) {
             return Status::Running;
         }
@@ -128,6 +119,11 @@ class StatusDetector
         // Check for braille spinners (active processing)
         if ($this->hasSpinner($content)) {
             return Status::Running;
+        }
+
+        // Check for waiting state (permission prompts, y/n questions)
+        if ($this->matchesAny($content, $this->waitingPatterns)) {
+            return Status::Waiting;
         }
 
         // If no active indicators, Claude is idle (waiting for input)
@@ -213,14 +209,13 @@ class StatusDetector
             'idle' => $this->findMatches($content, $this->idlePatterns),
         ];
 
-        // Determine status based on priority
+        // Determine status based on priority — Running is highest because
+        // error/waiting patterns can match on code OUTPUT the agent is reviewing
         $status = Status::Idle;
-        if (!empty($matches['error'])) {
-            $status = Status::Error;
+        if (!empty($matches['running'])) {
+            $status = Status::Running;
         } elseif (!empty($matches['waiting'])) {
             $status = Status::Waiting;
-        } elseif (!empty($matches['running'])) {
-            $status = Status::Running;
         } elseif (!empty($matches['idle'])) {
             $status = Status::Idle;
         }
