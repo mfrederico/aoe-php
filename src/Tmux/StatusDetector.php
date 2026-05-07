@@ -14,6 +14,14 @@ use Aoe\Session\Status;
  * - Waiting (for user input, permission)
  * - Idle (shell prompt, no activity)
  * - Error (error messages)
+ *
+ * Pattern priority: detect() evaluates pattern categories in a fixed priority
+ * order — running, then waiting, then error, then idle — and returns as soon
+ * as a category matches. Running is checked first because error/waiting
+ * patterns can incidentally match on code OUTPUT the agent is reviewing (test
+ * failures, error logs in scrollback, etc.); a confirmed "running" signal must
+ * win over those false positives. Idle is the fallback returned when no other
+ * category matches.
  */
 class StatusDetector
 {
